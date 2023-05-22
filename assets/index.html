@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" class="h-100 autoscroll">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="robots" content="noindex, nofollow">
+        @{{if .AuthorizationCodeConfig }}
+        <meta name="clientId" content="@{{ .AuthorizationCodeConfig.ClientId }}">
+        <meta name="realmBaseUrl" content="@{{ .AuthorizationCodeConfig.RealmBaseUrl }}">
+        @{{end}}
+        <title>journal-web-viewer</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" crossorigin="anonymous" data-th-nonce="${cspnonce}">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous" data-th-nonce="${cspnonce}">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous" data-th-nonce="${cspnonce}"></script>
+
+        <script src="https://cdn.jsdelivr.net/npm/@optionfactory/ftl@0.14.0/dist/ftl.iife.min.js" integrity="sha256-5d1U8JjZphRX6HQkKNfvlvHjaCt3ReRNxADXHRDPg8o=" crossorigin="anonymous" data-th-nonce="${cspnonce}"></script>        
+        <script src="https://cdn.jsdelivr.net/npm/@optionfactory/ful@0.24.0/dist/ful.iife.min.js" integrity="sha256-9Pc8JBV5H/mI6Ftdos1nNh0eIg5oI+TS94bZLncLm80=" crossorigin="anonymous" data-th-nonce="${cspnonce}"></script>        
+        <script src="auth.js"></script>
+        <script src="app.js"></script>
+        <style>
+            thead {
+                background-color: white;
+            }
+            .btn-lg {
+                --bs-btn-padding-y: 0.8rem;
+            }            
+            .col-switches {
+                width: 210px;
+            }
+            .form-check.form-switch {
+                width: 60px;
+                flex-basis: 33%;
+            }   
+            [data-ref="message-column"] {
+                overflow-wrap: anywhere;                
+            }
+            [data-ref="timestamp-column"] {
+               white-space: nowrap;
+            }            
+
+
+            html.autoscroll {
+                scroll-snap-type: y mandatory;                
+            }
+
+            tbody tr:last-child {
+                scroll-snap-align: start;
+            }
+            
+            body.hide-hostname [data-ref=hostname-column]{
+                display:none;
+            }
+            body.hide-pid [data-ref=pid-column]{
+                display:none;
+            }
+            body.hide-unit [data-ref=unit-column]{
+                display:none;
+            }
+            body.hide-timestamp [data-ref=timestamp-column]{
+                display:none;
+            }                                    
+
+        </style>
+
+    </head>
+
+    <body class="h-100">
+        <div class="h-100 d-flex justify-content-center justify-content-center align-items-center" id="loader">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+        <table class="table table-bordered table-striped d-none" id="logs">
+            <thead class="sticky-top table-primary">
+                <tr>
+                    <th colspan="6" class="container-fluid">
+                        <header class="row g-3">
+                            <div class="col">
+                                <div class="form-floating">
+                                    <input type="email" class="form-control" list="allowedhosts" id="hosts" placeholder=" " multiple>
+                                    <label for="hosts">Hosts</label>
+                                    <datalist id="allowedhosts"></datalist>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-floating">
+                                    <input type="email" class="form-control" list="allowedunits" id="units" placeholder=" " multiple>
+                                    <label for="units">Units</label>
+                                    <datalist id="allowedunits"></datalist>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="filter" placeholder=" ">
+                                    <label for="filter">Filter</label>
+                                </div>
+                            </div>
+
+                            <div class="col-auto">
+                                <div class="dropdown">
+                                    <button class="btn btn-lg btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" id="range" data-range-type="lines" data-range-options='{"lines": 10}'>
+                                        10 lines
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-primary">
+                                        <li><a class="dropdown-item" data-range-type="lines" data-range-options='{"lines": 0}'>0 lines</a></li>
+                                        <li><a class="dropdown-item" data-range-type="lines" data-range-options='{"lines": 10}'>10 lines</a></li>
+                                        <li><a class="dropdown-item" data-range-type="lines" data-range-options='{"lines": 100}'>100 lines</a></li>
+                                        <li><a class="dropdown-item" data-range-type="lines" data-range-options='{"lines": 1000}'>1000 lines</a></li>
+                                        <li><a class="dropdown-item" data-range-type="lines" data-range-options='{"lines": 100000}'>100000 lines</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" data-range-type="minutes" data-range-options='{"minutes": 5}'>Last 5 minues</a></li>
+                                        <li><a class="dropdown-item" data-range-type="minutes" data-range-options='{"minutes": 30}'>Last 30 minues</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item"data-range-type="period" data-range-options='{"since": 0, "until": 0}'>Period</a></li>
+                                    </ul>
+                                    </div>
+                            </div>
+                            <div class="col-switches d-flex flex-wrap">
+                                <div class="form-check form-switch" data-bs-toggle="tooltip" title="Follow">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="follow" checked="checked">
+                                    <label class="form-check-label" for="follow">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch" data-bs-toggle="tooltip" title="AutoScroll">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="autoscroll" checked="checked">
+                                    <label class="form-check-label" for="autoscroll">
+                                        <i class="bi bi-arrow-bar-down"></i>                                        
+                                    </label>
+                                </div>
+                                <div class="form-check form-switch"  data-bs-toggle="tooltip" title="Show Hostname Column">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="show-column-hostname" checked="checked" data-column-toggle="hostname">
+                                    <label class="form-check-label" for="show-column-hostname">
+                                        <i class="bi bi-database"></i>
+                                    </label>
+                                </div>    
+                                <div class="form-check form-switch"  data-bs-toggle="tooltip" title="Show PID Column">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="show-column-pid" checked="checked" data-column-toggle="pid">
+                                    <label class="form-check-label" for="show-column-pid">
+                                        <i class="bi bi-diagram-2"></i>
+                                    </label>
+                                </div>    
+                                <div class="form-check form-switch"  data-bs-toggle="tooltip" title="Show Unit Column">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="show-column-unit" checked="checked" data-column-toggle="unit">
+                                    <label class="form-check-label" for="show-column-unit">
+                                        <i class="bi bi-box-seam"></i>
+                                    </label>
+                                </div>    
+                                <div class="form-check form-switch"  data-bs-toggle="tooltip" title="Show Timestamp Column">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="show-column-timestamp" checked="checked" data-column-toggle="timestamp">
+                                    <label class="form-check-label" for="show-column-timestamp">
+                                        <i class="bi bi-alarm"></i>
+                                    </label>
+                                </div>                                                                                                    
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-secondary btn-lg" data-ref="clear">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                                <button class="btn btn-warning btn-lg d-none" data-ref="stop">
+                                    <i class="bi bi-stop-circle-fill"></i>
+                                </button>
+                                <button class="btn btn-primary btn-lg" data-ref="start">
+                                    <i class="bi bi-play-circle-fill"></i>
+                                </button>
+                                <button class="btn btn-danger btn-lg" data-ref="logout">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                </button>
+                            </div>
+                        </header>    
+                    </th>
+                </tr>
+                <tr data-ref="table-headers">
+                    <th data-ref="hostname-column"><i class="bi bi-database" data-bs-toggle="tooltip" title="Hostname"></i></th>
+                    <th data-ref="pid-column"><i class="bi bi-diagram-2" data-bs-toggle="tooltip" title="PID"></i></th>
+                    <th data-ref="unit-column"><i class="bi bi-box-seam" data-bs-toggle="tooltip" title="Unit"></i></th>
+                    <th data-ref="timestamp-column"><i class="bi bi-alarm" data-bs-toggle="tooltip" title="Timestamp"></i></th>
+                    <th data-ref="message-column"><i class="bi bi-chat-left-text"  data-bs-toggle="tooltip" title="Message"></i></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </body>
+    <template id="table-row-template">
+        <tr data-tpl-each="self">
+            <td data-ref="hostname-column">{{hostname}}</td>
+            <td data-ref="pid-column">{{pid}}</td>
+            <td data-ref="unit-column">{{unit}}</td>
+            <td data-ref="timestamp-column">{{timestamp}}</td>
+            <td data-ref="message-column">{{message}}</td>
+        </tr>
+    </template>
+</html>
