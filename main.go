@@ -147,12 +147,15 @@ func main() {
 			})
 		})
 	}
-	gofiber.Get("/ws/stream", authenticator.MakeAuthenticatedWebSocket(func(c *websocket.Conn) {
+	gofiber.Get("/ws/stream", authenticator.MakeAuthenticatedWebSocket(func(c *websocket.Conn) error {
 		req := &journal.StreamRequest{}
-		c.ReadJSON(req)
-		journalReader.Stream(c, req)
+		err := c.ReadJSON(req)
+		if err != nil {
+			return err
+		}
+		return journalReader.Stream(c, req)
 	}))
-	log.Printf("listening...")
+	log.Printf("listening on %v (%v)...", conf.Listener.Address, conf.Listener.Protocol)
 	ln, err := MakeListener(&conf.Listener)
 	if err != nil {
 		log.Fatal(err)

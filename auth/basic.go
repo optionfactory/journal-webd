@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -65,38 +64,37 @@ func (self *BasicAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (self *BasicAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn)) func(*fiber.Ctx) error {
+func (self *BasicAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
-		defer func() {
-			closeNormalClosure := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-			_ = c.WriteControl(websocket.CloseMessage, closeNormalClosure, time.Now().Add(time.Second))
-			c.Close()
-			if r := recover(); r != nil {
-				fmt.Println("Recovered in f", r)
-			}
-		}()
-
 		authorization := c.Headers("Authorization")
-		if strings.HasPrefix(authorization, "Bearer ") {
-			token := strings.TrimPrefix(authorization, "Bearer ")
-			if slices.Contains(self.WebSocketTokens, token) {
-				cb(c)
+		if authorization != "" {
+			if !strings.HasPrefix(authorization, "Bearer ") {
+				closeUnauthorized(c)
 				return
 			}
+			token := strings.TrimPrefix(authorization, "Bearer ")
+			if !slices.Contains(self.WebSocketTokens, token) {
+				closeUnauthorized(c)
+				return
+			}
+			closeAndHandleErrors(c, cb(c))
 		}
+
 		if !strings.HasPrefix(authorization, "Basic ") {
+			closeUnauthorized(c)
 			return
 		}
 		accessToken := strings.TrimPrefix(authorization, "Basic ")
 		if accessToken == "" {
+			closeUnauthorized(c)
 			return
 		}
 
 		if accessToken != b64(fmt.Sprintf("%s:%s", self.Username, self.Password)) {
+			closeUnauthorized(c)
 			return
 		}
-
-		cb(c)
+		closeAndHandleErrors(c, cb(c))
 	}, websocket.Config{
 		WriteBufferSize: 8192,
 	})

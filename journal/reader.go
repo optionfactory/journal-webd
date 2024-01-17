@@ -37,9 +37,9 @@ func MakeReader(directory string, allowedUnits []string, allowedHosts []string) 
 type StreamRequest struct {
 	Units        []string      `json:"units"`
 	Hosts        []string      `json:"hosts"`
-	RangeLines   *RangeLines   `json:"range_lines"`
-	RangePeriod  *RangePeriod  `json:"range_period"`
-	RangeMinutes *RangeMinutes `json:"range_minutes"`
+	RangeLines   *RangeLines   `json:"rangeLines"`
+	RangePeriod  *RangePeriod  `json:"rangePeriod"`
+	RangeMinutes *RangeMinutes `json:"rangeMinutes"`
 	Filter       string        `json:"filter"`
 }
 
@@ -128,7 +128,7 @@ func (self *JournalReader) KnownAllowedHosts() ([]string, error) {
 	return allowed(hosts, self.AllowedHosts), nil
 }
 
-func (self *JournalReader) Stream(c *websocket.Conn, req *StreamRequest) {
+func (self *JournalReader) Stream(c *websocket.Conn, req *StreamRequest) error {
 
 	args := []string{
 		"--merge",
@@ -164,8 +164,15 @@ func (self *JournalReader) Stream(c *websocket.Conn, req *StreamRequest) {
 			args = append(args, "--follow")
 		}
 	} else if req.RangePeriod != nil {
-		args = append(args, fmt.Sprintf("--since=%s", req.RangePeriod.Since))
-		args = append(args, fmt.Sprintf("--until=%s", req.RangePeriod.Until))
+		if req.RangePeriod.Since == "" && req.RangePeriod.Until == "" {
+			return fmt.Errorf("either since or until must be configured")
+		}
+		if req.RangePeriod.Since != "" {
+			args = append(args, fmt.Sprintf("--since=%s", req.RangePeriod.Since))
+		}
+		if req.RangePeriod.Until != "" {
+			args = append(args, fmt.Sprintf("--until=%s", req.RangePeriod.Until))
+		}
 	} else {
 		args = append(args, fmt.Sprintf("--since=-%vm", req.RangeMinutes.Minutes))
 		if req.RangeMinutes.Follow {
@@ -177,14 +184,24 @@ func (self *JournalReader) Stream(c *websocket.Conn, req *StreamRequest) {
 	cmd := exec.Command("journalctl", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Printf("error: %+v", err)
-		return
+		return fmt.Errorf("executing journalctl: %w", err)
 	}
-	cmd.Start()
+	err = cmd.Start()
+	if err != nil {
+		return fmt.Errorf("starting journalctl: %w", err)
+	}
 
 	var wg sync.WaitGroup
 	done := make(chan bool)
 	wg.Add(1)
+
+	defer func() {
+		done <- true
+		close(done)
+		wg.Wait()
+		cmd.Wait()
+	}()
+
 	go func() {
 		for {
 			select {
@@ -207,12 +224,8 @@ func (self *JournalReader) Stream(c *websocket.Conn, req *StreamRequest) {
 		message := []byte(scanner.Text())
 		err := c.WriteMessage(websocket.TextMessage, message)
 		if err != nil {
-			log.Printf("error: %+v", err)
-			break
+			return fmt.Errorf("writing message: %w", err)
 		}
 	}
-	done <- true
-	close(done)
-	wg.Wait()
-	cmd.Wait()
+	return nil
 }

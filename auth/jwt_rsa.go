@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -63,34 +62,32 @@ func (self *RsaJwtAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn)) func(*fiber.Ctx) error {
+func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
-		defer func() {
-			closeNormalClosure := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-			_ = c.WriteControl(websocket.CloseMessage, closeNormalClosure, time.Now().Add(time.Second))
-			c.Close()
-			if r := recover(); r != nil {
-				fmt.Println("Recovered in f", r)
-			}
-		}()
 		authorization := c.Headers("Authorization")
-		if strings.HasPrefix(authorization, "Bearer ") {
-			fmt.Println("found token")
-			token := strings.TrimPrefix(authorization, "Bearer ")
-			if slices.Contains(self.WebSocketTokens, token) {
-				fmt.Println("token matches")
-				cb(c)
+		if authorization != "" {
+			if !strings.HasPrefix(authorization, "Bearer ") {
+				closeUnauthorized(c)
 				return
 			}
+			token := strings.TrimPrefix(authorization, "Bearer ")
+			if !slices.Contains(self.WebSocketTokens, token) {
+				closeUnauthorized(c)
+				return
+			}
+			closeAndHandleErrors(c, cb(c))
+			return
 		}
 
 		auth := &WebsocketAuthorizationRequest{}
 		err := c.ReadJSON(auth)
 		if err != nil {
+			closeUnauthorized(c)
 			return
 		}
 		accessToken := auth.Authorization
 		if accessToken == "" {
+			closeUnauthorized(c)
 			return
 		}
 		parsedToken, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
@@ -102,16 +99,19 @@ func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket
 		})
 
 		if err != nil {
+			closeUnauthorized(c)
 			return
 		}
 
 		claims, ok := parsedToken.Claims.(jwt.MapClaims)
 		if !ok || !parsedToken.Valid {
+			closeUnauthorized(c)
 			return
 		}
 		//TODO: process claims
 		_ = claims
-		cb(c)
+
+		closeAndHandleErrors(c, cb(c))
 	}, websocket.Config{
 		WriteBufferSize: 8192,
 	})

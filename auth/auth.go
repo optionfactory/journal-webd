@@ -2,6 +2,8 @@ package auth
 
 import (
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -16,7 +18,7 @@ type UiAuthConfig struct {
 type Authenticator interface {
 	InterceptAssetRequest(cb func(*fiber.Ctx) error) func(*fiber.Ctx) error
 	InterceptApiCall(c *fiber.Ctx) error
-	MakeAuthenticatedWebSocket(cb func(c *websocket.Conn)) func(*fiber.Ctx) error
+	MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error
 }
 
 type WebsocketAuthorizationRequest struct {
@@ -46,4 +48,27 @@ func MakeAuthenticator(authConfig *UiAuthConfig, webSocketTokens []string) (Auth
 	default:
 		return nil, fmt.Errorf("invalid auth_type got: %s expected one of 'basic', 'authorization_code'", authConfig.AuthType)
 	}
+}
+
+func closeUnauthorized(c *websocket.Conn) {
+	deadline := time.Now().Add(time.Second)
+	fmt.Println("unauthorized")
+	message := websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "Unauthorized")
+	_ = c.WriteControl(websocket.CloseMessage, message, deadline)
+	c.Close()
+}
+
+func closeAndHandleErrors(c *websocket.Conn, err error) {
+	if err != nil {
+		deadline := time.Now().Add(time.Second)
+		log.Printf("server error: %v", err)
+		message := websocket.FormatCloseMessage(websocket.CloseInternalServerErr, fmt.Sprintf("%v", err))
+		_ = c.WriteControl(websocket.CloseMessage, message, deadline)
+		c.Close()
+		return
+	}
+	deadline := time.Now().Add(time.Second)
+	message := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+	_ = c.WriteControl(websocket.CloseMessage, message, deadline)
+	c.Close()
 }
