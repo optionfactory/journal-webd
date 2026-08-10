@@ -1,7 +1,6 @@
 REPO_OWNER=optionfactory
 REPO_NAME=journal-webd
-VERSION=v1.2-dev
-
+VERSION=1.2-dev
 
 build: bin/$(REPO_NAME)-linux-amd64
 
@@ -24,9 +23,9 @@ clean:
 
 
 publish-github: build
-	gh release create "$(VERSION)" \
-		"bin/$(REPO_NAME)-linux-amd64#$(REPO_NAME)-linux-amd64" \
+	gh release create "v$(VERSION)" \
+		"bin/$(REPO_NAME)-linux-amd64" \
 		--repo "$(REPO_OWNER)/$(REPO_NAME)" \
-		--title "$(VERSION)" \
+		--title "v$(VERSION)" \
 		--target "master" \
-		--notes "release $(VERSION)"
+		--notes ""
