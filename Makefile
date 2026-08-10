@@ -21,6 +21,14 @@ clean:
 	@echo "Removing $(REPO_NAME)..."
 	@rm -rf bin/
 
+check-updates:
+	#go install golang.org/x/vuln/cmd/govulncheck@latest
+	-@govulncheck -show verbose  ./...
+	#go install github.com/securego/gosec/v2/cmd/gosec@latest
+	-@gosec ./...
+	@echo Available direct updates
+	@go list -u -m -f '{{if and (not .Indirect) .Update}}{{.Path}}: {{.Version}} -> {{.Update.Version}}{{end}}' all
+
 
 publish-github: build
 	gh release create "v$(VERSION)" \
