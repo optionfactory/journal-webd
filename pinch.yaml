@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/optionfactory/pinch/refs/heads/master/schema/pinch-v1.schema.json
+schema_version: 1
+project:
+  name: journal-webd
+  type: service
+  tier: tier3
+  lifecycle: active
