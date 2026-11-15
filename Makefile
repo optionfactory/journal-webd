@@ -37,9 +37,12 @@ pushed:
 	@[ "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/master)" ] || { echo "master is not pushed: push it first"; exit 1; }
 
 publish-github: pushed build
-	gh release create "v$(VERSION)" \
+	@cd bin && sha256sum $(REPO_NAME)-linux-amd64 > SHA256SUMS
+	@gh release create "v$(VERSION)" \
 		"bin/$(REPO_NAME)-linux-amd64" \
+		"bin/SHA256SUMS" \
 		--repo "$(REPO_OWNER)/$(REPO_NAME)" \
 		--title "v$(VERSION)" \
 		--target "master" \
 		--notes ""
+	-@rm bin/SHA256SUMS
