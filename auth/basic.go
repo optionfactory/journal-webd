@@ -67,17 +67,14 @@ func (self *BasicAuthenticator) InterceptApiCall(c fiber.Ctx) error {
 func (self *BasicAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
 		authorization := c.Headers("Authorization")
-		if authorization != "" {
-			if !strings.HasPrefix(authorization, "Bearer ") {
-				closeUnauthorized(c)
-				return
-			}
+		if strings.HasPrefix(authorization, "Bearer ") {
 			token := strings.TrimPrefix(authorization, "Bearer ")
 			if !slices.Contains(self.WebSocketTokens, token) {
 				closeUnauthorized(c)
 				return
 			}
 			closeAndHandleErrors(c, cb(c))
+			return
 		}
 
 		if !strings.HasPrefix(authorization, "Basic ") {
