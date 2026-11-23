@@ -1,6 +1,6 @@
 REPO_OWNER=optionfactory
 REPO_NAME=journal-webd
-VERSION=1.2
+VERSION=1.3
 
 build: bin/$(REPO_NAME)-linux-amd64
 

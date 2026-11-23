@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3 (2026-11-23)
 
 ### Fixed
 - With `auth_type` `basic`, the websocket stream rejected valid basic credentials, so the UI
