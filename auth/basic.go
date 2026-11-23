@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 )
 
 type BasicAuthenticator struct {
@@ -24,8 +24,8 @@ func MakeBasicAuthenticator(conf *BasicAuthConfig, webSocketTokens []string) *Ba
 	}
 }
 
-func (self *BasicAuthenticator) InterceptAssetRequest(cb func(*fiber.Ctx) error) func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func (self *BasicAuthenticator) InterceptAssetRequest(cb func(fiber.Ctx) error) func(fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		c.Append("WWW-Authenticate", "Basic realm=\"Realm\"")
 		authorization := c.Get("Authorization")
 		if !strings.HasPrefix(authorization, "Basic ") {
@@ -47,7 +47,7 @@ func b64(v string) string {
 	return base64.StdEncoding.EncodeToString([]byte(v))
 }
 
-func (self *BasicAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
+func (self *BasicAuthenticator) InterceptApiCall(c fiber.Ctx) error {
 	authorization := c.Get("Authorization")
 	if !strings.HasPrefix(authorization, "Basic ") {
 		return c.SendStatus(fiber.StatusUnauthorized)
@@ -64,7 +64,7 @@ func (self *BasicAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (self *BasicAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error {
+func (self *BasicAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
 		authorization := c.Headers("Authorization")
 		if authorization != "" {

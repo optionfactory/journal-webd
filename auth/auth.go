@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 )
 
 type UiAuthConfig struct {
@@ -16,9 +16,9 @@ type UiAuthConfig struct {
 }
 
 type Authenticator interface {
-	InterceptAssetRequest(cb func(*fiber.Ctx) error) func(*fiber.Ctx) error
-	InterceptApiCall(c *fiber.Ctx) error
-	MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error
+	InterceptAssetRequest(cb func(fiber.Ctx) error) func(fiber.Ctx) error
+	InterceptApiCall(c fiber.Ctx) error
+	MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(fiber.Ctx) error
 }
 
 type WebsocketAuthorizationRequest struct {

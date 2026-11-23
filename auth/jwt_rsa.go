@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/optionfactory/journal-webd/pem"
 )
@@ -28,11 +28,11 @@ func MakeRsaJwtAuthenticator(config *AuthorizationCodeConfig, webSocketTokens []
 	}, nil
 }
 
-func (self *RsaJwtAuthenticator) InterceptAssetRequest(cb func(*fiber.Ctx) error) func(*fiber.Ctx) error {
+func (self *RsaJwtAuthenticator) InterceptAssetRequest(cb func(fiber.Ctx) error) func(fiber.Ctx) error {
 	return cb
 }
 
-func (self *RsaJwtAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
+func (self *RsaJwtAuthenticator) InterceptApiCall(c fiber.Ctx) error {
 	authorization := c.Get("Authorization")
 	if !strings.HasPrefix(authorization, "Bearer ") {
 		return c.SendStatus(fiber.StatusUnauthorized)
@@ -62,7 +62,7 @@ func (self *RsaJwtAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error {
+func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
 		authorization := c.Headers("Authorization")
 		if authorization != "" {

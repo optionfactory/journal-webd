@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	recovermw "github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/template/html/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/logger"
+	recovermw "github.com/gofiber/fiber/v3/middleware/recover"
+	"github.com/gofiber/template/html/v3"
 	"github.com/optionfactory/journal-webd/auth"
 	"github.com/optionfactory/journal-webd/journal"
 	"github.com/optionfactory/journal-webd/pem"
@@ -90,17 +90,19 @@ func main() {
 	templateEngine := html.NewFileSystem(http.FS(assets), ".html")
 	templateEngine.Delims("@{{", "}}")
 
-	proxyHeader := ""
+	fiberConfig := fiber.Config{
+		Views: templateEngine,
+	}
 	if conf.ProxyMode == "edge" {
-		proxyHeader = fiber.HeaderXForwardedFor
+		fiberConfig.ProxyHeader = fiber.HeaderXForwardedFor
+		fiberConfig.TrustProxy = true
+		fiberConfig.TrustProxyConfig = fiber.TrustProxyConfig{
+			Loopback: true,
+			Private:  true,
+		}
 	}
 
-	gofiber := fiber.New(fiber.Config{
-		Views:                 templateEngine,
-		Prefork:               false,
-		DisableStartupMessage: true,
-		ProxyHeader:           proxyHeader,
-	})
+	gofiber := fiber.New(fiberConfig)
 
 	gofiber.Use(recovermw.New())
 	gofiber.Use(logger.New())
@@ -115,16 +117,16 @@ func main() {
 		panic(err)
 	}
 	if conf.UiAuthConfig != nil {
-		gofiber.Get("/", authenticator.InterceptAssetRequest(func(c *fiber.Ctx) error {
+		gofiber.Get("/", authenticator.InterceptAssetRequest(func(c fiber.Ctx) error {
 			return c.Render("assets/index", conf.UiAuthConfig)
 		}))
 
-		gofiber.Get("/app.js", authenticator.InterceptAssetRequest(func(c *fiber.Ctx) error {
+		gofiber.Get("/app.js", authenticator.InterceptAssetRequest(func(c fiber.Ctx) error {
 			data, _ := assets.Open("assets/app.js")
 			return c.SendStream(data)
 		}))
 
-		gofiber.Get("/auth.js", authenticator.InterceptAssetRequest(func(c *fiber.Ctx) error {
+		gofiber.Get("/auth.js", authenticator.InterceptAssetRequest(func(c fiber.Ctx) error {
 			data, _ := assets.Open(fmt.Sprintf("assets/auth-%s.js", conf.UiAuthConfig.AuthType))
 			return c.SendStream(data)
 		}))
@@ -140,7 +142,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		gofiber.Get("/api/conf", func(c *fiber.Ctx) error {
+		gofiber.Get("/api/conf", func(c fiber.Ctx) error {
 			return c.JSON(&ConfResponse{
 				Hosts: allowedHosts,
 				Units: allowedUnits,
@@ -161,7 +163,9 @@ func main() {
 		log.Fatal(err)
 	}
 	go func() {
-		e := gofiber.Listener(ln)
+		e := gofiber.Listener(ln, fiber.ListenConfig{
+			DisableStartupMessage: true,
+		})
 		log.Printf("gofiber quit: err? %v", e)
 		doneChannel <- true
 	}()

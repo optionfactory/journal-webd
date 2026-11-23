@@ -4,8 +4,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 )
 
 type TokenOnlyAuthenticator struct {
@@ -18,17 +18,17 @@ func MakeTokenOnlyAuthenticator(webSocketTokens []string) *TokenOnlyAuthenticato
 	}
 }
 
-func (self *TokenOnlyAuthenticator) InterceptAssetRequest(cb func(*fiber.Ctx) error) func(*fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func (self *TokenOnlyAuthenticator) InterceptAssetRequest(cb func(fiber.Ctx) error) func(fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		panic("should never be called")
 	}
 }
 
-func (self *TokenOnlyAuthenticator) InterceptApiCall(c *fiber.Ctx) error {
+func (self *TokenOnlyAuthenticator) InterceptApiCall(c fiber.Ctx) error {
 	panic("should never be called")
 }
 
-func (self *TokenOnlyAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(*fiber.Ctx) error {
+func (self *TokenOnlyAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket.Conn) error) func(fiber.Ctx) error {
 	return websocket.New(func(c *websocket.Conn) {
 		authorization := c.Headers("Authorization")
 		if authorization == "" {
