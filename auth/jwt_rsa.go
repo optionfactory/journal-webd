@@ -2,13 +2,12 @@ package auth
 
 import (
 	"crypto/rsa"
-	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/optionfactory/journal-webd/pem"
 )
 
@@ -28,6 +27,12 @@ func MakeRsaJwtAuthenticator(config *AuthorizationCodeConfig, webSocketTokens []
 	}, nil
 }
 
+func (self *RsaJwtAuthenticator) parse(accessToken string) (*jwt.Token, error) {
+	return jwt.Parse(accessToken, func(t *jwt.Token) (any, error) {
+		return self.PublicKey, nil
+	}, jwt.WithValidMethods([]string{"RS256", "RS384", "RS512"}))
+}
+
 func (self *RsaJwtAuthenticator) InterceptAssetRequest(cb func(fiber.Ctx) error) func(fiber.Ctx) error {
 	return cb
 }
@@ -41,14 +46,7 @@ func (self *RsaJwtAuthenticator) InterceptApiCall(c fiber.Ctx) error {
 	if accessToken == "" {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
-	parsedToken, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
-		_, ok := t.Method.(*jwt.SigningMethodRSA)
-		if !ok {
-			return nil, fmt.Errorf("unexpected method: %s", t.Header["alg"])
-		}
-		return self.PublicKey, nil
-	})
-
+	parsedToken, err := self.parse(accessToken)
 	if err != nil {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
@@ -90,14 +88,7 @@ func (self *RsaJwtAuthenticator) MakeAuthenticatedWebSocket(cb func(c *websocket
 			closeUnauthorized(c)
 			return
 		}
-		parsedToken, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
-			_, ok := t.Method.(*jwt.SigningMethodRSA)
-			if !ok {
-				return nil, fmt.Errorf("unexpected method: %s", t.Header["alg"])
-			}
-			return self.PublicKey, nil
-		})
-
+		parsedToken, err := self.parse(accessToken)
 		if err != nil {
 			closeUnauthorized(c)
 			return
